@@ -1,7 +1,7 @@
 #include "OneWireBus.h"
 
 OneWireBus::OneWireBus(Adafruit_DS248x& ds248x)
-    : ds(ds248x), ds28e18(ds248x), deviceCount(0) {}
+    : ds(ds248x), ds28e18(ds248x), deviceCount(0), lastActiveDevice(-1) {}
 
 bool OneWireBus::begin(bool enCRC) {
     return ds28e18.begin(enCRC);
@@ -21,6 +21,7 @@ bool OneWireBus::getDeviceROM(uint8_t index, uint8_t outRom[8]) const {
 }
 
 bool OneWireBus::skipROM() {
+    lastActiveDevice = -1;  // Invalidate: skip mode, no specific device
     return ds28e18.skipROM();
 }
 
@@ -37,10 +38,18 @@ DS28E18& OneWireBus::device(uint8_t index) {
     if (index >= deviceCount) {
         // fallback: default skip mode in case of invalid index
         ds28e18.skipROM();
-    } else {
+        lastActiveDevice = -1;  // Invalidate: skip mode, no specific device
+    } else if (lastActiveDevice != (int8_t)index) {
+        // Only re-select if switching to a different device
         setActiveROM(deviceROMs[index]);
+        lastActiveDevice = (int8_t)index;
     }
+    // If same device is already active, skip redundant ROM selection
     return ds28e18;
+}
+
+void OneWireBus::invalidateActiveDevice() {
+    lastActiveDevice = -1;
 }
 
 bool OneWireBus::initializeROMs() {

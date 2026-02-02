@@ -28,7 +28,8 @@ public:
     bool resetAllDeviceStatus();                // Global reset device status
 
     // ----- Access a specific device -----
-    DS28E18& device(uint8_t index);              // Automatically Match‑ROM
+    DS28E18& device(uint8_t index);              // Automatically Match‑ROM (optimized)
+    void invalidateActiveDevice();               // Force re-selection on next device() call
 
     // ----- Debug Control -----
     void enableDebug() {DS28E18_Debug = true;};
@@ -49,6 +50,7 @@ private:
 
     uint8_t deviceROMs[ONEWIREBUS_MAX_DEVICES][8];
     uint8_t deviceCount;
+    int8_t lastActiveDevice;  // -1 = none, otherwise index of last selected device
 
     // Internal helpers
     void setActiveROM(const uint8_t rom[8]);

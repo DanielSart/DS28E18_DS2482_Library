@@ -113,6 +113,10 @@ private:
     bool skipMode;  // true -> Skip-ROM addressing
     bool haveROM;
     uint8_t ROM[8];
+    
+    // Resume ROM optimization: track last addressed device
+    uint8_t lastROM[8];
+    bool lastROMValid;  // true if lastROM contains a valid previously-addressed ROM
 
     // 1-Wire primitives
     bool oneWireReset();

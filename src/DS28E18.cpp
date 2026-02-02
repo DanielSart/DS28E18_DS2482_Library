@@ -9,6 +9,7 @@ bool DS28E18_Debug = false;
 #define OVERDRIVE_SKIP_ROM      0x3C
 #define MATCH_ROM               0x55
 #define OVERDRIVE_MATCH_ROM     0x69
+#define RESUME_ROM              0xA5
 
 // ----------------------------------------------
 // Constructor
@@ -18,7 +19,9 @@ DS28E18::DS28E18(Adafruit_DS248x &ds248x) : ds(ds248x) {
     useCRC   = true;
     haveROM  = false;
     skipMode = false;
+    lastROMValid = false;
     memset(ROM, 0, sizeof(arr));
+    memset(lastROM, 0, sizeof(lastROM));
 }
 
 // ----------------------------------------------
@@ -39,6 +42,7 @@ bool DS28E18::begin(bool enCRC) {
     ds.activePullup(true);
     haveROM  = false;
     skipMode = false;
+    lastROMValid = false;  // Invalidate Resume ROM cache on begin
 
     DBG_PRINTLN("DS28E18 ready");
     return true;
@@ -118,6 +122,7 @@ bool DS28E18::skipROM() {
 
     haveROM  = false;
     skipMode = true;
+    lastROMValid = false;  // Invalidate Resume ROM cache when switching to skip mode
     return true;
 }
 
@@ -164,18 +169,32 @@ bool DS28E18::sendCommandStartAndParams(
             oneWireWriteByte(SKIP_ROM);
             dbgStep("WRITE", SKIP_ROM, "SKIP ROM");
         }
+        lastROMValid = false;  // Skip mode invalidates Resume ROM
     } else if (haveROM) {
-        if (useOverdrive){
-            oneWireWriteByte(OVERDRIVE_MATCH_ROM);
-            dbgStep("WRITE", OVERDRIVE_MATCH_ROM, "MATCH ROM");
-            ds.overdriveSpeed(true);
+        // Check if we can use Resume ROM (same device as last command)
+        bool canResume = lastROMValid && (memcmp(ROM, lastROM, 8) == 0);
+        
+        if (canResume && !useOverdrive) {
+            // Use Resume ROM - saves 8 bytes!
+            oneWireWriteByte(RESUME_ROM);
+            dbgStep("WRITE", RESUME_ROM, "RESUME ROM");
         } else {
-            oneWireWriteByte(MATCH_ROM);
-            dbgStep("WRITE", MATCH_ROM, "MATCH ROM");
-        }
-        for (int i = 0; i < 8; i++) {
-            oneWireWriteByte(ROM[i]);
-            dbgStep("WRITE", ROM[i], "ROM BYTE");
+            // Full Match ROM with 8-byte address
+            if (useOverdrive){
+                oneWireWriteByte(OVERDRIVE_MATCH_ROM);
+                dbgStep("WRITE", OVERDRIVE_MATCH_ROM, "OVERDRIVE MATCH ROM");
+                ds.overdriveSpeed(true);
+            } else {
+                oneWireWriteByte(MATCH_ROM);
+                dbgStep("WRITE", MATCH_ROM, "MATCH ROM");
+            }
+            for (int i = 0; i < 8; i++) {
+                oneWireWriteByte(ROM[i]);
+                dbgStep("WRITE", ROM[i], "ROM BYTE");
+            }
+            // Save this ROM for potential Resume ROM on next command
+            memcpy(lastROM, ROM, 8);
+            lastROMValid = true;
         }
     } else {
         DBG_PRINTLN("ERROR: no ROM selected and not in skip mode");
