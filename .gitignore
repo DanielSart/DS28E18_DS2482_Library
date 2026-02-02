@@ -1,0 +1,43 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Libraries
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+fpio-remote-info.json
+
+# VS Code
+.vscode/
+
+# Layout and other hidden files
+.DS_Store
+*.swp
+*.bak

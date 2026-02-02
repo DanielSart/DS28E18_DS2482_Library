@@ -1,0 +1,22 @@
+{
+  "name": "DS28E18_DS2482_Library",
+  "version": "1.0.0",
+  "description": "Arduino library for DS28E18 bridge (works over DS2482). Provides sequencer builder compatible with Wire and DS28E18 device functions.",
+  "keywords": "DS28E18, DS2482, 1-Wire, I2C, SPI, Bridge",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DanielSart/DS28E18_DS2482_Library.git"
+  },
+  "authors": [
+    {
+      "name": "Daniel Sart",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "dependencies": {
+    "adafruit/Adafruit DS2482": "*"
+  }
+}
