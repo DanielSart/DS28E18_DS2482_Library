@@ -69,6 +69,13 @@ public:
     bool readSequencer(uint16_t addr, uint8_t *out, uint16_t len, uint16_t &outLen);
     bool runSequencer(uint16_t addr, uint16_t len, uint8_t &result);
 
+    // Device configuration
+    bool writeDeviceConfiguration(uint8_t config);
+    bool readDeviceConfiguration(uint8_t &config);
+
+    // I2C bus scan (uses sequencer to probe addresses 0x08-0x77)
+    void scanI2C();
+
     // GPIO
     bool initializeGPIO();
     bool resetDeviceStatus();

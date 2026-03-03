@@ -380,6 +380,109 @@ bool DS28E18::runSequencer(uint16_t addr, uint16_t len, uint8_t &result) {
 }
 
 // ----------------------------------------------
+// Write Device Configuration (55h)
+// config byte: bits[1:0] = SPD (00=100kHz, 01=400kHz, 10=1MHz)
+//              bit[2] = INACK (0=don't ignore, 1=ignore NACK)
+//              bit[3] = PROT  (0=I2C, 1=SPI)
+// ----------------------------------------------
+bool DS28E18::writeDeviceConfiguration(uint8_t config) {
+    dbgGap();
+    DBG_PRINTLN("WRITE DEVICE CONFIGURATION");
+
+    uint8_t cmdAndParams[2] = {0x55, config};
+
+    uint8_t rbuf[8];
+    uint8_t rlen = 0;
+
+    bool ok = sendCommandStartAndParams(cmdAndParams,
+                                        sizeof(cmdAndParams),
+                                        1, rbuf, rlen, 1, false);
+    if (!ok || rlen == 0) return false;
+
+    if (rbuf[0] == 0xAA) {
+        DBG_PRINTLN("Write Device Configuration OK");
+        return true;
+    }
+
+    DBG_PRINT("Write Device Configuration failed. Result = 0x");
+    if (DS28E18_Debug) Serial.println(rbuf[0], HEX);
+    return false;
+}
+
+// ----------------------------------------------
+// Read Device Configuration (44h)
+// ----------------------------------------------
+bool DS28E18::readDeviceConfiguration(uint8_t &config) {
+    dbgGap();
+    DBG_PRINTLN("READ DEVICE CONFIGURATION");
+
+    uint8_t cmdAndParams[1] = {0x44};
+
+    uint8_t rbuf[8];
+    uint8_t rlen = 0;
+
+    bool ok = sendCommandStartAndParams(cmdAndParams,
+                                        sizeof(cmdAndParams),
+                                        2, rbuf, rlen, 1, false);
+    if (!ok || rlen < 2) return false;
+
+    if (rbuf[0] == 0xAA) {
+        config = rbuf[1];
+        DBG_PRINT("Device Config: 0x");
+        if (DS28E18_Debug) Serial.println(config, HEX);
+        return true;
+    }
+
+    return false;
+}
+
+// ----------------------------------------------
+// I2C Bus Scan – probe addresses 0x08..0x77
+// Uses the sequencer to send a simple START + ADDR(W) + STOP
+// and checks the result code for ACK vs NACK.
+// ----------------------------------------------
+void DS28E18::scanI2C() {
+    dbgGap();
+    Serial.println("--- I2C Bus Scan ---");
+
+    DS28E18_Sequencer seq;
+    uint8_t found = 0;
+
+    for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
+        seq.clear();
+        seq.addStart();
+        // Write just the address byte (no data) to see if it ACKs
+        uint8_t dummy = 0x00;
+        seq.addWrite(addr, &dummy, 1);
+        seq.addStop();
+
+        if (!writeSequencer(0, seq.getBuffer(), seq.getLength())) {
+            continue;
+        }
+
+        uint8_t result;
+        if (runSequencer(0, seq.getLength(), result)) {
+            // Got ACK (0xAA) – device is present
+            Serial.print("  0x");
+            if (addr < 0x10) Serial.print("0");
+            Serial.print(addr, HEX);
+            Serial.println(" - ACK (device found)");
+            found++;
+        }
+        // NACK (0x88) is expected for empty addresses, just skip
+    }
+
+    if (found == 0) {
+        Serial.println("  No I2C devices found!");
+    } else {
+        Serial.print("  ");
+        Serial.print(found);
+        Serial.println(" device(s) found.");
+    }
+    Serial.println("--- End I2C Scan ---");
+}
+
+// ----------------------------------------------
 // GPIO INITIALISATION (Table 68)
 // ----------------------------------------------
 bool DS28E18::initializeGPIO() {
