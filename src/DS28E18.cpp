@@ -332,7 +332,7 @@ bool DS28E18::readSequencer(uint16_t addr, uint8_t *out, uint16_t len, uint16_t 
     }
 
     // rlen should be 1(result) + nbytes
-    uint16_t copyLen = min<uint16_t>(rlen, len);
+    uint16_t copyLen = min<uint16_t>(rlen, len + 1);
     memcpy(out, tmp, copyLen);
     outLen = copyLen;
 
