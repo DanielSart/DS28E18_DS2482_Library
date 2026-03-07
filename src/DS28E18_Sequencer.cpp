@@ -43,6 +43,8 @@ bool DS28E18_Sequencer::addWriteByte(uint8_t i2cAddr, uint8_t data) {
 }
 
 bool DS28E18_Sequencer::addRead(uint8_t i2cAddr, uint16_t len) {
+    if (len == 0) return false;
+
     // Step 1: Write the I2C Read Header (Addr + 1)
     // This switches the direction of the I2C bus
     if (index + 3 > 512) return false;
@@ -52,17 +54,32 @@ bool DS28E18_Sequencer::addRead(uint8_t i2cAddr, uint16_t len) {
     buffer[index++] = (i2cAddr << 1) | 1; // I2C Read Address (LSB 1)
 
     // Step 2: Clock in data from slave
-    // Needs Opcode (1) + LenByte (1) + DummyBytes (len)
-    // We use SEQ_CMD_READ_NACK (D3) for the last block to signal end of read
-    if (index + 2 + len > 512) return false;
-
-    buffer[index++] = SEQ_CMD_READ_NACK; 
-    buffer[index++] = (uint8_t)len; // Read Length
-
-    // Fill buffer with 0xFF dummies to reserve space in SRAM
-    for (uint8_t i = 0; i < len; i++) {
+    // Needs Opcode (1) + LenByte (1) + DummyBytes
+    //
+    // Correct I2C behavior is to ACK every byte except the last one.
+    // Use SEQ_CMD_READ (D4) for len-1 bytes (ACK), then SEQ_CMD_READ_NACK (D3)
+    // for the final byte (NACK) to end the read.
+    if (len == 1) {
+        if (index + 2 + 1 > 512) return false;
+        buffer[index++] = SEQ_CMD_READ_NACK;
+        buffer[index++] = 1;
         buffer[index++] = 0xFF;
+        return true;
     }
+
+    // First block: ACK reads (len - 1)
+    uint16_t lenAck = len - 1;
+    if (lenAck > 255) return false; // current sequencer format supports 8-bit lengths
+    if (index + 2 + lenAck > 512) return false;
+    buffer[index++] = SEQ_CMD_READ;
+    buffer[index++] = (uint8_t)lenAck;
+    for (uint16_t i = 0; i < lenAck; i++) buffer[index++] = 0xFF;
+
+    // Final byte: NACK read
+    if (index + 2 + 1 > 512) return false;
+    buffer[index++] = SEQ_CMD_READ_NACK;
+    buffer[index++] = 1;
+    buffer[index++] = 0xFF;
 
     return true;
 }
