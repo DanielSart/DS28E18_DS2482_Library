@@ -17,6 +17,6 @@
   "frameworks": "arduino",
   "platforms": "*",
   "dependencies": {
-    "adafruit/Adafruit DS2482": "*"
+    "adafruit/Adafruit DS248x": "*"
   }
 }
