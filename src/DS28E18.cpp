@@ -228,14 +228,21 @@ bool DS28E18::sendCommandStartAndParams(
     oneWireReadByte(crcMSB); dbgStep("READ", crcMSB, "CRC MSB");
 
     // Execute
+    if (requireSPU) {
+        ds.strongPullup(true);
+        DBG_PRINTLN("SPU ARMED");
+    }
+
+    // The DS2482 activates SPU on the *next* 1-Wire write slot.
+    // So we MUST arm SPU before writing the RELEASE byte.
     oneWireWriteByte(RELEASE_BYTE);
     dbgStep("WRITE", RELEASE_BYTE, "RELEASE");
 
     if (requireSPU) {
-        ds.strongPullup(true);
-        DBG_PRINTLN("SPU ON");
+        DBG_PRINTLN("SPU ACTIVE");
     }
 
+    // Wait for the requested operation time while SPU power is applied.
     delay(tOP_ms);
 
     // --- Device reply ---
@@ -245,9 +252,20 @@ bool DS28E18::sendCommandStartAndParams(
     oneWireReadByte(dummy); dbgStep("READ", dummy, "DUMMY");
     oneWireReadByte(rlen);  dbgStep("READ", rlen, "LENGTH");
 
+    // Sanity check: if rlen is 0xFF, the line is likely floating (no device)
+    if (rlen == 0xFF) {
+        DBG_PRINTLN("ERROR: bus floating (length 0xFF)");
+        return false;
+    }
+
     if (rlen == 0) {
         DBG_PRINTLN("ERROR: zero-length response");
-        if (requireSPU) ds.strongPullup(false);
+        return false;
+    }
+
+    // Limit length to avoid buffer overflow if device malfunctions
+    if (rlen > 128) {
+        DBG_PRINTLN("ERROR: response too long");
         return false;
     }
 
@@ -268,10 +286,9 @@ bool DS28E18::sendCommandStartAndParams(
     oneWireReadByte(crcLSB); dbgStep("READ", crcLSB, "CRC LSB");
     oneWireReadByte(crcMSB); dbgStep("READ", crcMSB, "CRC MSB");
 
-    if (requireSPU) {
-        ds.strongPullup(false);
-        DBG_PRINTLN("SPU OFF");
-    }
+    // The DS2482 hardware automatically resets its SPU configuration bit
+    // down to 0 upon executing the NEXT 1-Wire Reset command.
+    // So we don't need to (and shouldn't) manually disable it here.
 
     resultLen = rlen;
     return true;
@@ -349,6 +366,10 @@ bool DS28E18::readSequencer(uint16_t addr, uint8_t *out, uint16_t len, uint16_t 
 // Run Sequencer (33h)
 // ----------------------------------------------
 bool DS28E18::runSequencer(uint16_t addr, uint16_t len, uint8_t &result) {
+    return runSequencer(addr, len, result, 5);
+}
+
+bool DS28E18::runSequencer(uint16_t addr, uint16_t len, uint8_t &result, uint16_t tOP_ms) {
     if (len == 0 || len > 512) {
         DBG_PRINTLN("runSequencer: invalid len (1-512)");
         return false;
@@ -364,7 +385,7 @@ bool DS28E18::runSequencer(uint16_t addr, uint16_t len, uint8_t &result) {
     uint8_t rlen = 0;
     bool ok = sendCommandStartAndParams(cmd, sizeof(cmd),
                                         1, rbuf, rlen,
-                                        5 /*tOP, depends on sequence*/, true /*need SPU*/);
+                                        tOP_ms, true /*need SPU*/);
     if (!ok || rlen == 0) {
         DBG_PRINTLN("runSequencer: command failed");
         return false;
@@ -372,11 +393,16 @@ bool DS28E18::runSequencer(uint16_t addr, uint16_t len, uint8_t &result) {
 
     result = rbuf[0];
 
-    if (result == 0xAA) return true;
+    // Any result code other than 0xAA still means the 1-Wire transaction 
+    // succeeded, but the sequencer encountered an error (like 0x55 NACK).
+    // We log it but do NOT return false here so the caller can handle it 
+    // and read back the SRAM to identify the exact point of failure.
+    if (result != 0xAA) {
+        DBG_PRINT("runSequencer result code: 0x");
+        if (DS28E18_Debug) Serial.println(result, HEX);
+    }
 
-    DBG_PRINT("runSequencer result code: 0x");
-    if (DS28E18_Debug) Serial.println(result, HEX);
-    return (result == 0xAA);
+    return true;
 }
 
 // ----------------------------------------------

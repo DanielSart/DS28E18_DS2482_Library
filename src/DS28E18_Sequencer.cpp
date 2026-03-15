@@ -77,3 +77,11 @@ uint8_t* DS28E18_Sequencer::getBuffer() {
 uint16_t DS28E18_Sequencer::getLength() {
     return index;
 }
+
+uint16_t DS28E18_Sequencer::remainingCapacity() const {
+    return (index < SEQ_MAX_SIZE) ? (SEQ_MAX_SIZE - index) : 0;
+}
+
+bool DS28E18_Sequencer::wouldFit(uint16_t bytes) const {
+    return (index + bytes) <= SEQ_MAX_SIZE;
+}

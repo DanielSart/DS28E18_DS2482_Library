@@ -3,6 +3,9 @@
 
 #include <Arduino.h>
 
+// DS28E18 sequencer SRAM size
+#define SEQ_MAX_SIZE        512
+
 // DS28E18 Sequencer Opcodes
 #define SEQ_CMD_START       0x02
 #define SEQ_CMD_STOP        0x03
@@ -45,8 +48,14 @@ public:
     // Returns current length of the buffer
     uint16_t getLength();
 
+    // Returns remaining bytes available in the buffer
+    uint16_t remainingCapacity() const;
+
+    // Returns true if 'bytes' additional bytes would fit
+    bool wouldFit(uint16_t bytes) const;
+
 private:
-    uint8_t buffer[512]; // Max sequencer size
+    uint8_t buffer[SEQ_MAX_SIZE];
     uint16_t index;
 };
 

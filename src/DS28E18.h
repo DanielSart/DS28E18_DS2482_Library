@@ -68,6 +68,7 @@ public:
     bool writeSequencer(uint16_t addr, const uint8_t *data, uint16_t len);
     bool readSequencer(uint16_t addr, uint8_t *out, uint16_t len, uint16_t &outLen);
     bool runSequencer(uint16_t addr, uint16_t len, uint8_t &result);
+    bool runSequencer(uint16_t addr, uint16_t len, uint8_t &result, uint16_t tOP_ms);
 
     // Device configuration
     bool writeDeviceConfiguration(uint8_t config);
